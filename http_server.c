@@ -175,11 +175,27 @@ void *pthread_routine(void *arg)
   int client_socket = *(int*) arg;
   free(arg);
 
+  char request[MAX_GET_REQUEST_LENGTH] = {0};
 
+  /* Receive request from client. */
+  if (recv(client_socket, request, MAX_GET_REQUEST_LENGTH, 0) == -1) {
+    perror("recv");
+  }
 
+  /* Parse request. */
+  char file_name[MAX_FILE_NAME] = {0};
+  char file_extension[MAX_FILE_NAME_EXTENSION] = {0};
+  if (!is_valid_http_request(request)) {
+    send(client_socket, "HTTP/1.1 400 Bad Request\r\n\r\n", strlen("HTTP/1.1 400 Bad Request\r\n\r\n"), 0);
+  }
 
-  write(client_socket, "Hello! This is HTTP Server", strlen("Hello! This is HTTP Server"));
-
+  if (parse_http_request(request, file_name, file_extension)) {
+    if (if_file_exists(file_name)) {
+      char response[MAX_GET_REQUEST_LENGTH] = {0};
+      create_http_response_success(file_name, file_extension, response);
+      send(client_socket, response, strlen(response), 0);
+    }
+  }
   return NULL;
 }
 

@@ -8,7 +8,7 @@ clean:
 	rm -rf server client
 
 server: http_server.c http_server.h file.c file.h mime.c mime.h
-	gcc -o server http_server.c http_server.h file.c file.h mime.c mime.h -lpthread
+	gcc -o server http_server.c file.c mime.c -lpthread
 
 client: http_client.c http_client.h
-	gcc -o client http_client.c http_client.h -lpthread
+	gcc -o client http_client.c -lpthread

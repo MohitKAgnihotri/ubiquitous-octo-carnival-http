@@ -12,36 +12,67 @@
 #include "file.h"
 #include "http_server.h"
 
-#define BACKLOG 10
-#define PORT_NUM 1313
 
-
-/* Thread routine to serve connection to client. */
-void *pthread_routine(void *arg);
-
-/* Signal handler to handle SIGTERM and SIGINT signals. */
-void signal_handler(int signal_number);
-
-void SetupSignalHandler();
-
-int CreateServerSocket(int port);
 
 int server_socket_fd;
 
 int main(int argc, char *argv[])
 {
-  int port, new_socket_fd;
+  int port, new_socket_fd, protocol_type;
   pthread_attr_t pthread_client_attr;
   pthread_t pthread;
   socklen_t client_address_len;
   struct sockaddr_in client_address;
+  char *web_root;
+
+  if  (argc != 4)
+  {
+    printf("Usage: %s [protocol number] [port number] [path to web root]\n", argv[0]);
+    exit(1);
+  }
+
+  /* Get protocol version from command line arguments or stdin.
+  * */
+  protocol_type = atoi(argv[1]);
+  if (protocol_type != 4 && protocol_type != 6)
+  {
+    printf("Invalid protocol number.\n");
+    exit(1);
+  }
 
   /* Get port from command line arguments or stdin.
-   * For this server, this is fixed to 1113*/
-  port = PORT_NUM;
+   * */
+  port = atoi(argv[2]);
+  if (port < 0 || port > 65535)
+  {
+    printf("Invalid port number.\n");
+    exit(1);
+  }
+
+  /* Get web root from command line arguments or stdin.
+  * */
+  web_root = argv[3];
+  if (web_root == NULL)
+  {
+    printf("Invalid path to web root.\n");
+    exit(1);
+  }
+
+  if (if_file_exists(web_root))
+  {
+    printf("Invalid path to web root.\n");
+    exit(1);
+  }
 
   /*Create the server socket */
-  server_socket_fd = CreateServerSocket(port);
+  if (protocol_type == 4)
+  {
+    server_socket_fd = CreateServerSocket_ipv4(port);
+  }
+  else
+  {
+    server_socket_fd = CreateServerSocket_ipv6(port);
+  }
 
   /*Setup the signal handler*/
   SetupSignalHandler();
@@ -79,8 +110,49 @@ int main(int argc, char *argv[])
   return 0;
 }
 
+int CreateServerSocket_ipv6(int port)
+{
+  struct sockaddr_in6 address;
+  int socket_fd;
 
-int CreateServerSocket(int port)
+  /* Initialise IPv4 address. */
+  memset(&address, 0, sizeof (address));
+  address.sin6_family = AF_INET6;
+  address.sin6_port  = htons(port);
+  address.sin6_addr = in6addr_any;
+
+  /* Create TCP socket. */
+  if ((socket_fd = socket(AF_INET6, SOCK_STREAM, 0)) == -1)
+  {
+    perror("socket");
+    exit(1);
+  }
+
+  enable_socket((struct sockaddr*)&address, socket_fd);
+  return socket_fd;
+
+}
+
+void enable_socket(struct sockaddr* address, int socket_fd)
+{
+  /* Bind address to socket. */
+  if (bind(socket_fd, (struct sockaddr *) address, sizeof ((*address))) == -1) {
+    perror("bind");
+    exit(1);
+  }
+
+  /* Listen on socket. */
+  if (listen(socket_fd, BACKLOG) == -1) {
+    perror("listen");
+    exit(1);
+  }
+
+  // Configure server socket
+  int enable = 1;
+  setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+}
+
+int CreateServerSocket_ipv4(int port)
 {
   struct sockaddr_in address;
   int socket_fd;
@@ -98,21 +170,7 @@ int CreateServerSocket(int port)
     exit(1);
   }
 
-  /* Bind address to socket. */
-  if (bind(socket_fd, (struct sockaddr *)&address, sizeof (address)) == -1) {
-    perror("bind");
-    exit(1);
-  }
-
-  /* Listen on socket. */
-  if (listen(socket_fd, BACKLOG) == -1) {
-    perror("listen");
-    exit(1);
-  }
-
-  // Configure server socket
-  int enable = 1;
-  setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+  enable_socket((struct sockaddr*)&address, socket_fd);
   return socket_fd;
 }
 
@@ -163,11 +221,10 @@ bool if_file_exists(char *file_name) {
   }
 }
 
-void create_http_response_success
-(char *file_name, char *file_extension, char *response) {
+void create_http_response_success (char *file_name, char *file_extension, char *response)
+{
   char *content_type = mime_type_get(file_extension);
   sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: %s\r\n\r\n", content_type);
-
 }
 
 void *pthread_routine(void *arg)

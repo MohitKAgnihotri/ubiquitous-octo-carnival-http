@@ -305,7 +305,7 @@ void *pthread_routine(void *arg)
     bool does_exist = if_file_exists(fully_qualified_file_name);
     if (does_exist) {
       memset(response, 0, sizeof(response));
-      create_http_response_success(fully_qualified_file_name, file_extension, response);
+      create_http_response_success(fully_qualified_file_name, response);
       send(client_socket, response, strlen(response), 0);
     }
     else

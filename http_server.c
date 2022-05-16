@@ -248,14 +248,14 @@ void create_http_response_success (char *file_name, char *response)
   unsigned int file_size = get_file_size(file_name);
 
   char *content_type = mime_type_get(file_name);
-  sprintf(response, "  \"HTTP/1.0 200 OK \r\n\"\n"
-                    "  \" Server: My Mumbo Jumbo \r\n\"\n"
-                    "  \"X-Powered-By: Grey Cells \r\n\"\n"
-                    "  \"Content-Language: nl \r\n\"\n"
-                    "  \"X-Cache: MISS \r\n\"\n"
-                    "  \"Connection: close \r\n\"\n"
-                    "  \"Content-Type: %s \r\n\"\n"
-                    "  \"Content-Length: %d \r\n\r\n\"", content_type, file_size);
+  sprintf(response, "HTTP/1.0 200 OK \r\n\"\n"
+                    "Server: My Mumbo Jumbo \r\n\"\n"
+                    "MIME-version: 1.0\r\n"
+                    "X-Powered-By: Grey Cells \r\n\"\n"
+                    "Content-Language: nl \r\n\"\n"
+                    "X-Cache: MISS \r\n\"\n"
+                    "Content-Type: %s \r\n\"\n"
+                    "Content-Length: %d \r\n\r\n\"", content_type, file_size);
 
   // map file to memory
   int fd = open(file_name, O_RDONLY);
@@ -269,10 +269,19 @@ void create_http_response_success (char *file_name, char *response)
 
 void create_http_failure_response (char *response)
 {
-  sprintf(response, "  \"HTTP/1.0 404 NOT FOUND \r\n\"\n"
-                    "  \" Server: My Mumbo Jumbo \r\n\"\n"
-                    "  \"X-Powered-By: Grey Cells \r\n\"\n"
-                    "  \"Connection: close \r\n\"\n");
+  sprintf(response, "HTTP/1.1 404 Not Found \r\n"
+                    "Server: nginx/0.8.54 \r\n"
+                    "Date: Mon, 02 Jan 2012 02:33:17 GMT \r\n"
+                    "Content-Type: text/html \r\n"
+                    "Content-Length: 169 \r\n"
+                    "Connection: close \r\n\r\n"
+                    "<html> \r\n"
+                    "<head><title>404 Not Found</title></head> \r\n"
+                    "<body bgcolor=\"white\"> \r\n"
+                     "<center><h1>404 Not Found</h1></center> \r\n"
+                     "<hr><center>nginx/0.8.54</center> \r\n"
+                     "</body>\r\n"
+                     "</html>\r\n");
 }
 
 void *pthread_routine(void *arg)

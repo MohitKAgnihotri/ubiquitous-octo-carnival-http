@@ -8,9 +8,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include "mime.h"
 #include "file.h"
 #include "http_server.h"
+
+
+char *web_root = NULL;
 
 
 
@@ -23,7 +29,6 @@ int main(int argc, char *argv[])
   pthread_t pthread;
   socklen_t client_address_len;
   struct sockaddr_in client_address;
-  char *web_root;
 
   if  (argc != 4)
   {
@@ -58,7 +63,7 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  if (if_file_exists(web_root))
+  if (!if_file_exists(web_root))
   {
     printf("Invalid path to web root.\n");
     exit(1);
@@ -198,18 +203,28 @@ bool is_valid_http_request(char *request) {
 }
 
 bool parse_http_request(char *request, char *file_name, char *file_extension) {
-  char *token;
-  token = strtok(request, " ");
-  if (token == NULL) {
+  /** GET /index.llll HTTP/1.0 */
+  char *pointer_start_filename = strchr(request, '/');
+  if (pointer_start_filename == NULL) {
     return false;
   }
-  strcpy(file_name, token);
-  token = strtok(NULL, " ");
-  if (token == NULL) {
+  char *pointer_start_HTTP = strchr(request, 'H');
+  if (pointer_start_HTTP == NULL) {
     return false;
   }
-  strcpy(file_extension, token);
+  pointer_start_HTTP--;
+
+  strncpy(file_name, pointer_start_filename + 1, pointer_start_HTTP - pointer_start_filename - 1);
+  file_name[pointer_start_HTTP - pointer_start_filename - 1] = '\0';
+
+  char *pointer_start_extension = strchr(file_name, '.');
+  if (pointer_start_extension == NULL) {
+    return false;
+  }
+  strncpy(file_extension, pointer_start_extension + 1, strlen(file_name) - (pointer_start_extension - file_name));
+  file_extension[strlen(file_name) - (pointer_start_extension - file_name)] = '\0';
   return true;
+
 }
 
 bool if_file_exists(char *file_name) {
@@ -219,12 +234,45 @@ bool if_file_exists(char *file_name) {
   } else {
     does_exist = false;
   }
+  return does_exist;
 }
 
-void create_http_response_success (char *file_name, char *file_extension, char *response)
+unsigned int get_file_size(char *file_name) {
+  struct stat st;
+  stat(file_name, &st);
+  return st.st_size;
+}
+
+void create_http_response_success (char *file_name, char *response)
 {
-  char *content_type = mime_type_get(file_extension);
-  sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: %s\r\n\r\n", content_type);
+  unsigned int file_size = get_file_size(file_name);
+
+  char *content_type = mime_type_get(file_name);
+  sprintf(response, "  \"HTTP/1.0 200 OK \r\n\"\n"
+                    "  \" Server: My Mumbo Jumbo \r\n\"\n"
+                    "  \"X-Powered-By: Grey Cells \r\n\"\n"
+                    "  \"Content-Language: nl \r\n\"\n"
+                    "  \"X-Cache: MISS \r\n\"\n"
+                    "  \"Connection: close \r\n\"\n"
+                    "  \"Content-Type: %s \r\n\"\n"
+                    "  \"Content-Length: %d \r\n\r\n\"", content_type, file_size);
+
+  // map file to memory
+  int fd = open(file_name, O_RDONLY);
+  char *file_content = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+  close(fd);
+
+  // copy file content to response
+  strcat(response, file_content);
+  munmap(file_content, file_size);
+}
+
+void create_http_failure_response (char *response)
+{
+  sprintf(response, "  \"HTTP/1.0 404 NOT FOUND \r\n\"\n"
+                    "  \" Server: My Mumbo Jumbo \r\n\"\n"
+                    "  \"X-Powered-By: Grey Cells \r\n\"\n"
+                    "  \"Connection: close \r\n\"\n");
 }
 
 void *pthread_routine(void *arg)
@@ -233,6 +281,7 @@ void *pthread_routine(void *arg)
   free(arg);
 
   char request[MAX_GET_REQUEST_LENGTH] = {0};
+  char response[MAX_GET_REQUEST_LENGTH] = {0};
 
   /* Receive request from client. */
   if (recv(client_socket, request, MAX_GET_REQUEST_LENGTH, 0) == -1) {
@@ -243,14 +292,27 @@ void *pthread_routine(void *arg)
   char file_name[MAX_FILE_NAME] = {0};
   char file_extension[MAX_FILE_NAME_EXTENSION] = {0};
   if (!is_valid_http_request(request)) {
-    send(client_socket, "HTTP/1.1 400 Bad Request\r\n\r\n", strlen("HTTP/1.1 400 Bad Request\r\n\r\n"), 0);
+    memset(response, 0, sizeof(response));
+    create_http_failure_response(response);
+    send(client_socket, response, sizeof(response), 0);
   }
 
-  if (parse_http_request(request, file_name, file_extension)) {
-    if (if_file_exists(file_name)) {
-      char response[MAX_GET_REQUEST_LENGTH] = {0};
-      create_http_response_success(file_name, file_extension, response);
+  if (parse_http_request(request, file_name, file_extension))
+  {
+    /* Check if file exists. */
+    char fully_qualified_file_name[MAX_FILE_NAME*2] = {0};
+    sprintf(fully_qualified_file_name, "%s/%s", web_root, file_name);
+    bool does_exist = if_file_exists(fully_qualified_file_name);
+    if (does_exist) {
+      memset(response, 0, sizeof(response));
+      create_http_response_success(fully_qualified_file_name, file_extension, response);
       send(client_socket, response, strlen(response), 0);
+    }
+    else
+    {
+      memset(response, 0, sizeof(response));
+      create_http_failure_response(response);
+      send(client_socket, response, sizeof(response), 0);
     }
   }
   return NULL;

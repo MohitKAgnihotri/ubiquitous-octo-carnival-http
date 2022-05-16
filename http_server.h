@@ -8,6 +8,10 @@
 #define BACKLOG 10
 
 
+#define IMPLEMENTS_IPV6
+#define MULTITHREADED
+
+
 /* Thread routine to serve connection to client. */
 void *pthread_routine(void *arg);
 

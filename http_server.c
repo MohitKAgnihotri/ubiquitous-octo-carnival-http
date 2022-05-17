@@ -203,27 +203,32 @@ bool is_valid_http_request(char *request) {
 }
 
 bool parse_http_request(char *request, char *file_name, char *file_extension) {
-  /** GET /index.llll HTTP/1.0 */
-  char *pointer_start_filename = strchr(request, '/');
-  if (pointer_start_filename == NULL) {
-    return false;
-  }
-  char *pointer_start_HTTP = strchr(request, 'H');
-  if (pointer_start_HTTP == NULL) {
-    return false;
-  }
-  pointer_start_HTTP--;
+    /** GET /index.llll HTTP/1.0 */
+    char *pointer_start_filename = strchr(request, '/');
+    if (pointer_start_filename == NULL) {
+        return false;
+    }
+    char *pointer_start_HTTP = strchr(request, 'H');
+    if (pointer_start_HTTP == NULL) {
+        return false;
+    }
+    pointer_start_HTTP--;
 
-  strncpy(file_name, pointer_start_filename + 1, pointer_start_HTTP - pointer_start_filename - 1);
-  file_name[pointer_start_HTTP - pointer_start_filename - 1] = '\0';
+    strncpy(file_name, pointer_start_filename + 1, pointer_start_HTTP - pointer_start_filename - 1);
+    file_name[pointer_start_HTTP - pointer_start_filename - 1] = '\0';
 
-  char *pointer_start_extension = strchr(file_name, '.');
-  if (pointer_start_extension == NULL) {
-    return false;
-  }
-  strncpy(file_extension, pointer_start_extension + 1, strlen(file_name) - (pointer_start_extension - file_name));
-  file_extension[strlen(file_name) - (pointer_start_extension - file_name)] = '\0';
-  return true;
+    char *pointer_start_extension = strchr(file_name, '.');
+    if (pointer_start_extension == NULL) 
+    {
+        // case : No filename extension
+        memset(file_extension, 0x00, MAX_FILE_NAME_EXTENSION);
+    }
+    else
+    {
+        strncpy(file_extension, pointer_start_extension + 1, strlen(file_name) - (pointer_start_extension - file_name));
+        file_extension[strlen(file_name) - (pointer_start_extension - file_name)] = '\0';
+    }
+    return true;
 
 }
 

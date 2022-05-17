@@ -1,5 +1,5 @@
 
-all: server client
+all: server 
 
 clean:
 	rm -f *.o
@@ -8,7 +8,4 @@ clean:
 	rm -rf server client
 
 server: http_server.c http_server.h file.c file.h mime.c mime.h
-	gcc -o server http_server.c file.c mime.c -lpthread
-
-client: http_client.c http_client.h
-	gcc -o client http_client.c -lpthread
+	gcc -Wall -g3 -O0 -o server http_server.c file.c mime.c -lpthread

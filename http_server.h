@@ -20,7 +20,6 @@ void signal_handler(int signal_number);
 
 void SetupSignalHandler();
 
-void create_http_response_success (char *file_name, char *response);
 bool if_file_exists(char *file_name);
 
 bool parse_http_request(char *request, char *file_name, char *file_extension);

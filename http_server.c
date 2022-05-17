@@ -273,7 +273,7 @@ void create_http_failure_response (char *response)
                     "Server: nginx/0.8.54 \r\n"
                     "Date: Mon, 02 Jan 2012 02:33:17 GMT \r\n"
                     "Content-Type: text/html \r\n"
-                    "Content-Length: 169 \r\n"
+                    "Content-Length: 174 \r\n"
                     "Connection: close \r\n\r\n"
                     "<html> \r\n"
                     "<head><title>404 Not Found</title></head> \r\n"
@@ -303,7 +303,7 @@ void *pthread_routine(void *arg)
   if (!is_valid_http_request(request)) {
     memset(response, 0, sizeof(response));
     create_http_failure_response(response);
-    send(client_socket, response, sizeof(response), 0);
+    send(client_socket, response, strlen(response), 0);
   }
 
   if (parse_http_request(request, file_name, file_extension))
@@ -315,13 +315,13 @@ void *pthread_routine(void *arg)
     if (does_exist) {
       memset(response, 0, sizeof(response));
       create_http_response_success(fully_qualified_file_name, response);
-      send(client_socket, response, strlen(response), 0);
+      send(client_socket, response, strlen(response)+1, 0);
     }
     else
     {
       memset(response, 0, sizeof(response));
       create_http_failure_response(response);
-      send(client_socket, response, sizeof(response), 0);
+      send(client_socket, response, strlen(response), 0);
     }
   }
   return NULL;

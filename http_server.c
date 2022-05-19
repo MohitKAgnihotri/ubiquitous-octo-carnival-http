@@ -248,7 +248,7 @@ unsigned int get_file_size(char *file_name) {
   return st.st_size;
 }
 
-void create_http_response_success (char *file_name, char *response)
+void create_n_send_http_response_success (int client_socket, char *file_name, char *response)
 {
   unsigned int file_size = get_file_size(file_name);
 
@@ -262,13 +262,27 @@ void create_http_response_success (char *file_name, char *response)
                     "Content-Type: %s \r\n\"\n"
                     "Content-Length: %d \r\n\r\n\"", content_type, file_size);
 
+  char *buffer = (char *) malloc(file_size + strlen(response));
+  if (buffer == NULL) {
+    perror("malloc");
+    exit(1);
+  }
+
+  memcpy(buffer, response, strlen(response));
+
   // map file to memory
   int fd = open(file_name, O_RDONLY);
   char *file_content = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
   close(fd);
 
-  // copy file content to response
-  strcat(response, file_content);
+  memcpy(buffer + strlen(response), file_content, file_size);
+
+  // send file content
+  size_t sent_bytes = send(client_socket, buffer, file_size + strlen(response), 0);
+  if (sent_bytes < file_size + strlen(response)) {
+        perror("send");
+        exit(1);
+  }
   munmap(file_content, file_size);
 }
 
@@ -319,8 +333,7 @@ void *pthread_routine(void *arg)
     bool does_exist = if_file_exists(fully_qualified_file_name);
     if (does_exist) {
       memset(response, 0, sizeof(response));
-      create_http_response_success(fully_qualified_file_name, response);
-      send(client_socket, response, strlen(response)+1, 0);
+      create_n_send_http_response_success(client_socket, fully_qualified_file_name, response);
     }
     else
     {

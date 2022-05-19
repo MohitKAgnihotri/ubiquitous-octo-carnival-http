@@ -278,8 +278,8 @@ void create_n_send_http_response_success (int client_socket, char *file_name, ch
   memcpy(buffer + strlen(response), file_content, file_size);
 
   // send file content
-  size_t sent_bytes = send(client_socket, buffer, file_size + strlen(response), 0);
-  if (sent_bytes < file_size + strlen(response)) {
+  size_t sent_bytes = send(client_socket, buffer, file_size + strlen(response) - 1, 0);
+  if (sent_bytes < (file_size + strlen(response) -1)) {
         perror("send");
         exit(1);
   }

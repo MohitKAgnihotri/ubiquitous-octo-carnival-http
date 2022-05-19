@@ -12,14 +12,10 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include "mime.h"
-#include "file.h"
 #include "http_server.h"
 
 
 char *web_root = NULL;
-
-
-
 int server_socket_fd;
 
 int main(int argc, char *argv[])
@@ -63,6 +59,7 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  /* Check if the web root exist */
   if (!if_file_exists(web_root))
   {
     printf("Invalid path to web root.\n");
@@ -72,10 +69,12 @@ int main(int argc, char *argv[])
   /*Create the server socket */
   if (protocol_type == 4)
   {
+    /* IPV4 type */
     server_socket_fd = CreateServerSocket_ipv4(port);
   }
   else
   {
+    /* IPV6 type */
     server_socket_fd = CreateServerSocket_ipv6(port);
   }
 
@@ -87,6 +86,9 @@ int main(int argc, char *argv[])
     perror("pthread_attr_init");
     exit(1);
   }
+  /**
+   * Set the detach state of the thread attribute object to PTHREAD_CREATE_DETACHED.
+   * */
   if (pthread_attr_setdetachstate(&pthread_client_attr, PTHREAD_CREATE_DETACHED) != 0) {
     perror("pthread_attr_setdetachstate");
     exit(1);
@@ -96,6 +98,8 @@ int main(int argc, char *argv[])
 
     /* Accept connection to client. */
     client_address_len = sizeof (client_address);
+
+    /* Accept connection to client. */
     new_socket_fd = accept(server_socket_fd, (struct sockaddr *)&client_address, &client_address_len);
     if (new_socket_fd == -1) {
       perror("accept");
@@ -105,6 +109,7 @@ int main(int argc, char *argv[])
     printf("Client connected\n");
     unsigned int *thread_arg = (unsigned int *) malloc(sizeof(unsigned int));
     *thread_arg = new_socket_fd;
+
     /* Create thread to serve connection to client. */
     if (pthread_create(&pthread, &pthread_client_attr, pthread_routine, (void *)thread_arg) != 0) {
       perror("pthread_create");
@@ -115,6 +120,7 @@ int main(int argc, char *argv[])
   return 0;
 }
 
+/* Create IPv6 server socket. */
 int CreateServerSocket_ipv6(int port)
 {
   struct sockaddr_in6 address;
@@ -157,6 +163,7 @@ void enable_socket(struct sockaddr* address, int socket_fd)
   setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
 }
 
+/* Create IPv6 server socket. */
 int CreateServerSocket_ipv4(int port)
 {
   struct sockaddr_in address;
@@ -179,11 +186,16 @@ int CreateServerSocket_ipv4(int port)
   return socket_fd;
 }
 
-void SetupSignalHandler() {/* Assign signal handlers to signals. */
+/** Setup signal handler. */
+
+void SetupSignalHandler() {
+
+  /* Assign signal handlers to signals. */
   if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
     perror("signal");
     exit(1);
   }
+
   if (signal(SIGTERM, signal_handler) == SIG_ERR) {
     perror("signal");
     exit(1);
@@ -194,7 +206,7 @@ void SetupSignalHandler() {/* Assign signal handlers to signals. */
   }
 }
 
-
+/* Check if it's a valid GET Req*/
 bool is_valid_http_request(char *request) {
   if (strncmp(request, "GET", 3) == 0) {
     return true;
@@ -202,8 +214,9 @@ bool is_valid_http_request(char *request) {
   return false;
 }
 
+/*Parse HTTP Request:
+ * Request of the following type are supported GET /index.llll HTTP/1.0 */
 bool parse_http_request(char *request, char *file_name, char *file_extension) {
-    /** GET /index.llll HTTP/1.0 */
     char *pointer_start_filename = strchr(request, '/');
     if (pointer_start_filename == NULL) {
         return false;
@@ -232,6 +245,7 @@ bool parse_http_request(char *request, char *file_name, char *file_extension) {
 
 }
 
+/* Verify if the file exist */
 bool if_file_exists(char *file_name) {
   bool does_exist = false;
   if( access( file_name, F_OK ) == 0 ) {
@@ -242,21 +256,23 @@ bool if_file_exists(char *file_name) {
   return does_exist;
 }
 
+/* Determine the size of the file */
 unsigned int get_file_size(char *file_name) {
   struct stat st;
   stat(file_name, &st);
   return st.st_size;
 }
 
+/* Create and send the HTTP Success Response */
 void create_n_send_http_response_success (int client_socket, char *file_name, char *response)
 {
   unsigned int file_size = get_file_size(file_name);
 
   char *content_type = mime_type_get(file_name);
   sprintf(response, "HTTP/1.0 200 OK \r\n\"\n"
-                    "Server: My Mumbo Jumbo \r\n\"\n"
+                    "Server: My Server \r\n\"\n"
                     "MIME-version: 1.0\r\n"
-                    "X-Powered-By: Grey Cells \r\n\"\n"
+                    "X-Powered-By: ME \r\n\"\n"
                     "Content-Language: nl \r\n\"\n"
                     "X-Cache: MISS \r\n\"\n"
                     "Content-Type: %s \r\n\"\n"
@@ -289,7 +305,7 @@ void create_n_send_http_response_success (int client_socket, char *file_name, ch
 void create_http_failure_response (char *response)
 {
   sprintf(response, "HTTP/1.1 404 Not Found \r\n"
-                    "Server: nginx/0.8.54 \r\n"
+                    "Server: MY Server \r\n"
                     "Date: Mon, 02 Jan 2012 02:33:17 GMT \r\n"
                     "Content-Type: text/html \r\n"
                     "Content-Length: 174 \r\n"

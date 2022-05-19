@@ -6,4 +6,4 @@ set(CMAKE_C_STANDARD 11)
 link_libraries(pthread)
 
 add_executable(http_client http_client.c http_client.h )
-add_executable(http_server http_server.c http_server.h file.c file.h mime.c mime.h)
+add_executable(http_server http_server.c http_server.h mime.c mime.h)
